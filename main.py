@@ -154,9 +154,16 @@ class TeacherHome(QDialog):
             self.classIdLabel.setText(f'Home Class ID : {self.classId}')
             self.addStudentBtn.show()
             self.addStudentBtn.clicked.connect(self.goToAddStudent)
+
+            self.showStudentScoresBtn.show()
+            self.showStudentScoresBtn.clicked.connect(self.goToShowStudenScoresForHomeTeacher)
+            
         elif self.teacherType == '0':
             self.classIdLabel.hide()
             self.addStudentBtn.hide()
+
+            self.showStudentScoresBtn.hide()
+
         self.teacherTypeLabel.setText('Teacher Type : Chu Nghiem' if self.teacherType == '1' else 'Teacher Type : Bo mon')
         self.teacherIdLabel.setText(f'Teacher ID : {self.user_id}')
 
@@ -179,6 +186,11 @@ class TeacherHome(QDialog):
     def goToEnterScore(self):
         enterScore = EnterScore(self.user_id, self.classId)
         widget.addWidget(enterScore)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def goToShowStudenScoresForHomeTeacher(self):
+        showStudentScoresForHomeTeacher = ShowStudentScoresForHomeTeacher(self.user_id, self.classId)
+        widget.addWidget(showStudentScoresForHomeTeacher)
         widget.setCurrentIndex(widget.currentIndex() + 1)
 
 class StudentHome(QDialog):
@@ -479,18 +491,26 @@ class CreateClass(QDialog):
     def updateTeachersTable(self):
         for i, teacher in enumerate(self.teachers):
             id = int(self.teachersTable.item(i, 0).text())
-            type = self.teachersTable.item(i, 1).text()
+
+            newType = self.teachersTable.item(i, 1).text()
+            oldType = self.teachers[i][2]
+
             newClassId = int(self.teachersTable.item(i, 2).text())
             newSubjectClassIds = self.teachersTable.item(i, 3).text()
 
             # oldClassId = self.teachers[i][3]
             oldSubjectClassIds = self.teachers[i][4]
 
-            update_teachers_table(id, type, newClassId, newSubjectClassIds, oldSubjectClassIds)
+            update_teachers_table(id, newType, newClassId, newSubjectClassIds, oldSubjectClassIds)
+
+            if oldType != '0' and newType == '0':
+                if newClassId != -1:
+                    update_teacher_class_id_with_class_id(newClassId, -1)
 
         self.initComponent()
         self.loadClassesList()
         self.loadSubjectClassesList()
+        self.loadTeachersList()
 
     def backHome(self):
         if self.role == '0':
@@ -899,7 +919,63 @@ class ShowScores(QDialog):
             self.scoresTable.setItem(row, 2, QtWidgets.QTableWidgetItem(f'{score}'))
             row += 1
 
+class ShowStudentScoresForHomeTeacher(QDialog):
+    def __init__(self, user_id, class_id):
+        super(ShowStudentScoresForHomeTeacher, self).__init__()
+        loadUi("showScoreForHomeTeacher.ui", self)
+        self.user_id = user_id
+        self.class_id = class_id
+        self.comeBackBtn.clicked.connect(self.backHome)
+        self.chooseBtn.clicked.connect(self.chooseSubjectClass)
+        self.initComponent()
 
+        self.subjectClassesTable.setColumnWidth(0, 100)
+        self.subjectClassesTable.setColumnWidth(1, 100)
+        self.loadSubjectClassesTable()
+        self.selectedSubjectClassId = -1
+
+        self.studentScoresTable.setColumnWidth(0, 100)
+        self.studentScoresTable.setColumnWidth(1, 100)
+        self.loadScoresTable()
+
+        self.subjectClassesTable.selectionModel().selectionChanged.connect(self.selectSubjectClassesTableChanged)
+
+    def backHome(self):
+        teacherHome = TeacherHome(self.user_id)
+        widget.addWidget(teacherHome)
+        widget.setCurrentIndex(widget.currentIndex() + 1)
+
+    def initComponent(self):
+        self.subject_classes = get_subject_classes_same_class(self.class_id)
+        self.my_students = get_my_students_from_class_id(self.class_id)
+
+    def loadSubjectClassesTable(self):
+        row = 0
+        self.subjectClassesTable.setRowCount(len(self.subject_classes))
+        for subject_class in self.subject_classes:
+            self.subjectClassesTable.setItem(row, 0, QtWidgets.QTableWidgetItem(f'{subject_class[0]}'))
+            self.subjectClassesTable.setItem(row, 1, QtWidgets.QTableWidgetItem(f'{subject_class[1]}'))
+            row += 1
+
+    def loadScoresTable(self):
+        row = 0
+        self.studentScoresTable.setRowCount(len(self.my_students))
+        for my_student in self.my_students:
+            self.studentScoresTable.setItem(row, 0, QtWidgets.QTableWidgetItem(f'{my_student[0]}'))
+            if self.selectedSubjectClassId != -1:
+                score = get_score_by_subject_class_id_and_student_id(self.selectedSubjectClassId, my_student[0])
+                self.studentScoresTable.setItem(row, 1, QtWidgets.QTableWidgetItem(f'{score}'))
+            row += 1
+
+    def selectSubjectClassesTableChanged(self, selected):
+        for ix in selected.indexes():
+            self.selectedSubjectClassId = int(self.subjectClassesTable.item(ix.row(), 0).text())
+            print(self.selectedSubjectClassId)
+            break
+
+    def chooseSubjectClass(self):
+        self.initComponent()
+        self.loadScoresTable()
 
 if __name__ == "__main__":
     create_account('admin', 'admin', '0')
