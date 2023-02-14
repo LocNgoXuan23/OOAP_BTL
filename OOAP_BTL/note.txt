@@ -1,0 +1,7 @@
+Accounts: userId, email, password, role(admin, canbo, giaovien, hs) 0,1,2,3
+UserInfos: userId, created, name, date, addr, phone, gender, 
+
+Sửa lại chỉ admin mới có thể tạo tài khoản
+
+class: id, className, teacherid
+subjectclass: id, subjectname, teacherid
